@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Volume2, VolumeX, Play, Pause, Music } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function MusicPlayer({ audioRef }) {
+export default function MusicPlayer({ audioRef, showFallback, setShowFallback }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
@@ -12,7 +12,10 @@ export default function MusicPlayer({ audioRef }) {
       setIsPlaying(!audio.paused);
       setIsMuted(audio.muted);
 
-      const handlePlay = () => setIsPlaying(true);
+      const handlePlay = () => {
+        setIsPlaying(true);
+        if (setShowFallback) setShowFallback(false);
+      };
       const handlePause = () => setIsPlaying(false);
       const handleVolumeChange = () => setIsMuted(audio.muted);
 
@@ -30,7 +33,7 @@ export default function MusicPlayer({ audioRef }) {
         audio.removeEventListener('volumechange', handleVolumeChange);
       };
     }
-  }, [audioRef]);
+  }, [audioRef, setShowFallback]);
 
   const togglePlay = () => {
     const audio = audioRef?.current;
@@ -40,11 +43,29 @@ export default function MusicPlayer({ audioRef }) {
       audio.pause();
       setIsPlaying(false);
     } else {
+      audio.currentTime = 0;
       audio.muted = false;
+      audio.volume = 1;
       audio.play().then(() => {
         setIsPlaying(true);
+        if (setShowFallback) setShowFallback(false);
       }).catch((err) => {
         console.warn("Play toggle failed:", err);
+      });
+    }
+  };
+
+  const handleFallbackClick = () => {
+    const audio = audioRef?.current;
+    if (audio) {
+      audio.currentTime = 0;
+      audio.muted = false;
+      audio.volume = 1;
+      audio.play().then(() => {
+        setIsPlaying(true);
+        if (setShowFallback) setShowFallback(false);
+      }).catch((err) => {
+        console.warn("Fallback play failed:", err);
       });
     }
   };
@@ -60,6 +81,22 @@ export default function MusicPlayer({ audioRef }) {
 
   return (
     <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3">
+      {/* Autoplay Fallback Prompt (only if browser blocked unmuted autoplay on video end) */}
+      <AnimatePresence>
+        {showFallback && !isPlaying && (
+          <motion.button
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            onClick={handleFallbackClick}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-rose-600/90 text-white font-medium text-xs shadow-lg backdrop-blur-md border border-rose-400/40 cursor-pointer hover:bg-rose-500 transition-colors animate-pulse"
+          >
+            <Music className="w-3.5 h-3.5" />
+            <span>Tap to play music 🎵</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {/* Floating Control Button Container */}
       <div className="relative group">
         {/* Glowing Aura when playing */}

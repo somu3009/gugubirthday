@@ -17,51 +17,51 @@ import Footer from '../components/Footer';
 export default function Home() {
   // Stage Flow: "locked" (Password Screen) -> "video" (Fullscreen Intro) -> "website" (Birthday Site)
   const [stage, setStage] = useState('locked');
+  const [showFallback, setShowFallback] = useState(false);
   const audioRef = useRef(null);
-  const audioTimerRef = useRef(null);
 
-  // Called synchronously during password unlock user gesture: starts audio MUTED
-  const handleStartAudioMuted = () => {
+  // Called when password is submitted: ensures audio stays paused at 0:00
+  const handlePasswordUnlock = () => {
     const audio = audioRef.current;
     if (audio) {
-      audio.muted = true;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
       audio.volume = 1;
-      audio.loop = true;
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn("Background audio start failed:", err);
-        });
-      }
     }
   };
 
-  // Called when video finishes or is skipped: holds 5 seconds, then unmutes and plays audio
-  const handleVideoComplete = () => {
-    setStage('website');
+  // Called when birthday video finishes or is skipped: plays audio from EXACTLY 0:00
+  const handleVideoEnded = () => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      audio.volume = 1;
+      audio.loop = true;
 
-    if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
-    audioTimerRef.current = setTimeout(() => {
-      const audio = audioRef.current;
-      if (audio) {
-        audio.muted = false;
-        audio.volume = 1;
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn("5-second delayed audio play failed:", err);
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setShowFallback(false);
+          })
+          .catch((error) => {
+            console.warn("Audio autoplay blocked on video end:", error);
+            setShowFallback(true);
           });
-        }
       }
-    }, 5000);
+    }
+    setStage('website');
   };
 
-  // Clean up timer and audio on unmount
+  // Clean up audio on unmount
   useEffect(() => {
     return () => {
-      if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.currentTime = 0;
       }
     };
   }, []);
@@ -87,7 +87,7 @@ export default function Home() {
         {stage === 'locked' && (
           <InitialLoader
             key="loader"
-            onUnlock={handleStartAudioMuted}
+            onUnlock={handlePasswordUnlock}
             onComplete={() => setStage('video')}
           />
         )}
@@ -95,7 +95,7 @@ export default function Home() {
         {stage === 'video' && (
           <VideoReveal
             key="video"
-            onComplete={handleVideoComplete}
+            onComplete={handleVideoEnded}
           />
         )}
       </AnimatePresence>
@@ -104,7 +104,7 @@ export default function Home() {
       {stage === 'website' && (
         <>
           {/* Floating Music Player Control */}
-          <MusicPlayer audioRef={audioRef} />
+          <MusicPlayer audioRef={audioRef} showFallback={showFallback} setShowFallback={setShowFallback} />
 
           {/* Story Flow Sections */}
           <main className="relative z-10">

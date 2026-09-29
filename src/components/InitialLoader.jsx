@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Unlock, Sparkles, Heart } from 'lucide-react';
 import loveConfig from '../config/loveConfig';
 
-export default function InitialLoader({ onComplete }) {
+export default function InitialLoader({ onComplete, onUnlock }) {
   const { passwordGate } = loveConfig;
   const [pin, setPin] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -24,6 +24,9 @@ export default function InitialLoader({ onComplete }) {
     if (codeToVerify === passwordGate.correctPin) {
       setErrorMsg('');
       setIsUnlocked(true);
+      if (onUnlock) {
+        onUnlock();
+      }
       setTimeout(() => {
         onComplete();
       }, 1200);

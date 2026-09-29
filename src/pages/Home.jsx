@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import ParticlesBackground from '../components/ParticlesBackground';
 import CustomCursor from '../components/CustomCursor';
@@ -17,9 +17,53 @@ import Footer from '../components/Footer';
 export default function Home() {
   // Stage Flow: "locked" (Password Screen) -> "video" (Fullscreen Intro) -> "website" (Birthday Site)
   const [stage, setStage] = useState('locked');
+  const audioRef = useRef(null);
+
+  // Called synchronously during password unlock user gesture: starts audio MUTED
+  const handleStartAudioMuted = () => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.muted = true;
+      audio.volume = 1;
+      audio.loop = true;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("Background audio start failed:", err);
+        });
+      }
+    }
+  };
+
+  // Called when video finishes or is skipped: unmutes audio and reveals website
+  const handleVideoComplete = () => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.muted = false;
+      audio.volume = 1;
+    }
+    setStage('website');
+  };
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
 
   return (
     <div className="relative min-h-screen bg-[#07050b] text-slate-100 overflow-x-hidden selection:bg-rose-500/30 selection:text-rose-200">
+      {/* Persistent Single Audio Element */}
+      <audio
+        ref={audioRef}
+        src="/audio/song.mp3"
+        loop
+        preload="auto"
+      />
+
       {/* Background Animated Canvas */}
       <ParticlesBackground />
 
@@ -29,11 +73,18 @@ export default function Home() {
       {/* Stage 1: Password Gate & Stage 2: Video Intro Reveal */}
       <AnimatePresence mode="wait">
         {stage === 'locked' && (
-          <InitialLoader key="loader" onComplete={() => setStage('video')} />
+          <InitialLoader
+            key="loader"
+            onUnlock={handleStartAudioMuted}
+            onComplete={() => setStage('video')}
+          />
         )}
 
         {stage === 'video' && (
-          <VideoReveal key="video" onComplete={() => setStage('website')} />
+          <VideoReveal
+            key="video"
+            onComplete={handleVideoComplete}
+          />
         )}
       </AnimatePresence>
 
@@ -41,7 +92,7 @@ export default function Home() {
       {stage === 'website' && (
         <>
           {/* Floating Music Player Control */}
-          <MusicPlayer />
+          <MusicPlayer audioRef={audioRef} />
 
           {/* Story Flow Sections */}
           <main className="relative z-10">

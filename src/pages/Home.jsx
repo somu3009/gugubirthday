@@ -18,6 +18,7 @@ export default function Home() {
   // Stage Flow: "locked" (Password Screen) -> "video" (Fullscreen Intro) -> "website" (Birthday Site)
   const [stage, setStage] = useState('locked');
   const audioRef = useRef(null);
+  const audioTimerRef = useRef(null);
 
   // Called synchronously during password unlock user gesture: starts audio MUTED
   const handleStartAudioMuted = () => {
@@ -35,19 +36,30 @@ export default function Home() {
     }
   };
 
-  // Called when video finishes or is skipped: unmutes audio and reveals website
+  // Called when video finishes or is skipped: holds 5 seconds, then unmutes and plays audio
   const handleVideoComplete = () => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.muted = false;
-      audio.volume = 1;
-    }
     setStage('website');
+
+    if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+    audioTimerRef.current = setTimeout(() => {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.muted = false;
+        audio.volume = 1;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn("5-second delayed audio play failed:", err);
+          });
+        }
+      }
+    }, 5000);
   };
 
-  // Clean up audio on unmount
+  // Clean up timer and audio on unmount
   useEffect(() => {
     return () => {
+      if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
       if (audioRef.current) {
         audioRef.current.pause();
       }
